@@ -1,0 +1,61 @@
+services:
+  backend:
+    build:
+      context: ./swg-infinity-django
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./swg-infinity-django:/app  # Mount the Django project directory
+      - django_static_volume:/app/staticfiles # Persist static files
+      - django_media_volume:/app/mediafiles # Persist media files
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=backend.settings
+      # Add other environment variables like DATABASE_URL if using external DB
+    depends_on:
+      - db # If we add a separate DB service
+    networks:
+      - swg_infinity_network
+
+  frontend:
+    build:
+      context: ./swg-infinity-django/frontend
+      dockerfile: Dockerfile # We will create this next
+    command: bun run dev
+    volumes:
+      - ./swg-infinity-django/frontend:/app
+      - /app/node_modules # Anonymous volume to persist node_modules
+      - /app/.next # Persist Next.js build cache
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api # Example for frontend to reach backend
+    depends_on:
+      - backend
+    networks:
+      - swg_infinity_network
+
+  db: # Example PostgreSQL service - uncomment and configure if needed
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=swg_infinity
+      - POSTGRES_USER=infinity_user
+      - POSTGRES_PASSWORD=infinity_password # Change this in a .env file ideally
+    ports:
+      - "5432:5432"
+    networks:
+      - swg_infinity_network
+
+networks:
+  swg_infinity_network:
+    driver: bridge
+
+volumes:
+  postgres_data: # For PostgreSQL
+  django_static_volume:
+  django_media_volume:
